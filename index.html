@@ -15,10 +15,18 @@
 	</header>
 	
 	<body>
-		<div id='pic-manip'>
-			<input type='file' name='photo' id='pic-up' />
-			<canvas id='seam-viewer'></canvas>
-			<input id='slider' class='hidden' type="range" name="slides" min="0" max="100" value='0'>
+		<div id='carvepad'>
+			<div id='input-block'>
+				<input type='file' name='photo' id='pic-up' />
+			</div>
+			<img src='loading.gif' id='swirly' class='hidden'/>
+			<div id='pic-manip'>
+				<canvas id='seam-viewer'></canvas>
+				<input id='slider' class='hidden' type="range" name="slides" min="0" max="100" value='0'>
+			</div>
+			<div id='new'>
+				<canvas id='new-pic-viewer'></canvas>
+			</div>
 		</div>
 		
 	</body>

@@ -1,6 +1,8 @@
 function SeamCarver() {
     this.seemed = $('#seam-viewer')[0];
+    this.newpic = $('#new-pic-viewer')[0];
     this.seemed_cxt = this.seemed.getContext('2d');
+    this.new_cxt = this.newpic.getContext('2d');
 
     this.init = function() {
         this.im_rep = this.make_rep_matrix();
@@ -10,9 +12,11 @@ function SeamCarver() {
 
         this.seams = Array(this.seemed.width);
 
-        this.make_im_rep();
+        //this.make_im_rep();
+        this.imdata = this.seemed_cxt.getImageData(0, 0, this.seemed.width, this.seemed.height).data;
         this.calc_energies();
         this.setCosts();
+        this.makeSeamOrder();
     }
     
     this.findMean = function(array) {
@@ -49,11 +53,15 @@ function SeamCarver() {
         }
     };
 
+    this.getPixelAt = function(h,w) {
+        return [this.imdata[4*h*this.seemed.width + w*4], this.imdata[4*h*this.seemed.width + w*4+1], this.imdata[4*h*this.seemed.width + w*4+2], this.imdata[4*h*this.seemed.width + w*4+3]];
+    }
+
     this.calc_energies = function() {
         for (var h = 0; h < this.seemed.height; h++) {
             for (var w = 0; w < this.seemed.width; w++) {
                 var diffs = [];
-                var curr = this.im_rep[h][w]
+                var curr = this.getPixelAt(h,w)
                 for (var i = -1; i<=1; i++) {
                     for (var j = -1; j<=1; j++){
                         if (h+i < 0 || h+i === this.seemed.height || w+j < 0 || w+j === this.seemed.width) {
@@ -61,7 +69,7 @@ function SeamCarver() {
                         }
 
                         else {
-                            diffs.push(this.compare_pixels(curr, this.im_rep[h+i][w+j]));
+                            diffs.push(this.compare_pixels(curr, this.getPixelAt(h+i, w+j)));
                         }
                     }
                 }
@@ -105,7 +113,7 @@ function SeamCarver() {
 
         else {
             this.directions[i][j] = this.findMinDirection(i,j);
-            this.costs[i][j] = this.energies[i][j] + this.costs[i-1][this.directions[i][j]]
+            this.costs[i][j] = this.energies[i][j] + this.costs[i-1][j+this.directions[i][j]]
         }
     };
 
@@ -146,16 +154,27 @@ function SeamCarver() {
     this.drawAllSeams = function(numSeams) {
         for (var s = 0; s <= numSeams; s++) {
             if (this.seams[s] === undefined) {
-                this.seams[s] = this.findSeamFrom(s)
+                this.seams[s] = this.findSeamFrom(this.seamOrder[s])
             }
             this.drawSeam(this.seams[s])
+            this.removeSeam(this.seams[s])
         }
-    }
+    };
+
+    this.removeSeam = function(seam) {
+        var newdata = this.new_cxt.getImageData(0, 0, this.newpic.width, this.newpic.height);
+        newdata.data = $.extend([undefined], newdata.data).slice(1);
+        for (var h = 0; h < seam.length; h++) {
+            newdata.data = newdata.data.subarray(0, 4*h*this.seemed.width + seam[h]*4 - h*4 - 1) + newdata.data.subarray(0, 4*h*this.seemed.width + seam[h]*4 - h*4 + 4)
+        }
+        newdata.data = new Uint8Array(newdata.data)
+        this.new_cxt.putImageData(newdata, 0,0)
+    };
 
     this.makeSeamOrder = function() {
         this.seamOrder = [];
-        var bottomCosts = this.costs[this.seemed.height-1];
-        var sorted = this.costs[this.seemed.height-1].sort()
+        var bottomCosts = $.extend([], this.costs[this.seemed.height-1]);
+        var sorted = $.extend([], this.costs[this.seemed.height-1]).sort()
         for (var s = 0; s < this.seemed.width; s++) {
             this.seamOrder.push(bottomCosts.indexOf(sorted[s]))
             bottomCosts[bottomCosts.indexOf(sorted[s])] = null;
@@ -168,20 +187,29 @@ $('document').ready(function(){
     var sc = new SeamCarver();
 
     $('#pic-up').change(function(){
+        $('#swirly').removeClass('hidden');
         var img = new Image();
+        var newimg = new Image();
         var reader = new FileReader();
         reader.onload = function (e) {
             img.src = e.target.result;
+            newimg.src = e.target.result;
         };
         reader.readAsDataURL(this.files[0]);
         img.onload = function() {
             sc.seemed.height = img.height;
             sc.seemed.width = img.width;
+            sc.newpic.height = newimg.height;
+            sc.newpic.width = newimg.width;
             $('#slider').attr('max', img.width);
             $('#slider').css('width', img.width);
+            $('#carvepad').css('width', img.width*2+40);
             $('#pic-manip').css('width', img.width);
+            $('#new').css('width', newimg.width);
             $('#slider').removeClass('hidden');
+            $('#swirly').addClass('hidden');
             sc.seemed_cxt.drawImage(img,0,0);
+            sc.new_cxt.drawImage(newimg,0,0);
             sc.init.call(sc);
         };
         //REFRESH CARVING
